@@ -99,8 +99,9 @@ if uploaded_file and api_key:
                 각 항목 끝에는 반드시 "출처: 《{book_info['title']}》 ({book_info['author']}) - {location}" 형식을 추가하세요.
                 """
                 
+                # 최신 지원 모델(gemini-3.6-flash) 적용
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.6-flash",
                     contents=prompt
                 )
                 

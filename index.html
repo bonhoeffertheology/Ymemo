@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ymemo - AI 스마트 독서 노트</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8f9fa; color: #333; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        h1 { font-size: 1.5rem; margin-bottom: 12px; color: #1a73e8; }
+        p { font-size: 0.95rem; color: #666; margin-bottom: 16px; }
+        input[type="text"], textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; margin-bottom: 12px; }
+        textarea { height: 180px; resize: vertical; }
+        button { width: 100%; background: #1a73e8; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+        button:hover { background: #1557b0; }
+        .status { font-size: 0.85rem; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; }
+        .status.success { background: #e6f4ea; color: #137333; }
+        .status.warn { background: #fef7e0; color: #b06000; }
+        #output { white-space: pre-wrap; line-height: 1.6; background: #f1f3f4; padding: 16px; border-radius: 8px; margin-top: 16px; font-size: 0.95rem; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>📚 Ymemo 독서 노트</h1>
+        <p>파이썬 없이 작동하는 제미나이 전용 독서 노트 발췌기입니다.</p>
+
+        <!-- API 키 설정 영역 -->
+        <div id="keyStatus" class="status warn">⚠️ API 키가 설정되지 않았습니다. 아래에 입력 후 저장하세요.</div>
+        <div id="keyInputBox">
+            <input type="text" id="apiKeyInput" placeholder="Gemini API Key를 입력하세요">
+            <button type="button" onclick="saveApiKey()" style="background:#34a853; margin-bottom:16px;">API Key 기기에 저장하기</button>
+        </div>
+
+        <!-- 텍스트 입력 및 분석 영역 -->
+        <label for="bookText" style="font-weight:bold; display:block; margin-bottom:8px;">📖 책 본문/텍스트 붙여넣기:</label>
+        <textarea id="bookText" placeholder="요약 및 발췌할 책 본문 내용이나 메모를 붙여넣으세요..."></textarea>
+
+        <button type="button" onclick="generateMemo()">🚀 AI 독서 노트 생성</button>
+    </div>
+
+    <!-- 결과 출력 영역 -->
+    <div id="resultCard" class="card hidden">
+        <h2>📋 분석 리포트</h2>
+        <div id="output">생성 중...</div>
+    </div>
+
+    <script>
+        // 페이지 로드시 기기에 저장된 API 키 확인
+        window.onload = function() {
+            const savedKey = localStorage.getItem("GEMINI_API_KEY");
+            if (savedKey) {
+                document.getElementById("apiKeyInput").value = savedKey;
+                document.getElementById("keyStatus").innerText = "✅ API Key가 이 기기에 저장되어 있습니다. (매번 입력 불필요)";
+                document.getElementById("keyStatus").className = "status success";
+            }
+        };
+
+        // API Key 브라우저(내 기기)에 저장
+        function saveApiKey() {
+            const key = document.getElementById("apiKeyInput").value.trim();
+            if (!key) {
+                alert("API 키를 입력해주세요.");
+                return;
+            }
+            localStorage.setItem("GEMINI_API_KEY", key);
+            document.getElementById("keyStatus").innerText = "✅ API Key가 이 기기에 저장되었습니다. (매번 입력 불필요)";
+            document.getElementById("keyStatus").className = "status success";
+            alert("API 키가 브라우저에 안전하게 저장되었습니다!");
+        }
+
+        // Gemini API 직접 호출
+        async function generateMemo() {
+            const apiKey = localStorage.getItem("GEMINI_API_KEY") || document.getElementById("apiKeyInput").value.trim();
+            const text = document.getElementById("bookText").value.trim();
+
+            if (!apiKey) {
+                alert("Gemini API 키를 먼저 설정하고 저장해주세요.");
+                return;
+            }
+            if (!text) {
+                alert("분석할 텍스트를 입력해주세요.");
+                return;
+            }
+
+            const outputDiv = document.getElementById("output");
+            const resultCard = document.getElementById("resultCard");
+            resultCard.classList.remove("hidden");
+            outputDiv.innerText = "⏳ Gemini AI가 분석 중입니다...";
+
+            const prompt = `
+다음 입력된 텍스트를 바탕으로 독서 노트를 작성해 주세요.
+
+[입력 텍스트]
+${text}
+
+[작성 양식]
+1. 📌 핵심 줄거리 & 중요 메모
+2. 💖 마음에 와닿는 문장
+3. 💬 인용하기 좋은 문장
+4. 📖 예화 / 에피소드 / 스토리
+
+각 항목별로 깔끔하게 정돈하여 출력해 주세요.
+            `;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    outputDiv.innerText = "❌ 오류 발생: " + data.error.message;
+                } else {
+                    const resultText = data.candidates[0].content.parts[0].text;
+                    outputDiv.innerText = resultText;
+                }
+            } catch (err) {
+                outputDiv.innerText = "❌ 통신 오류가 발생했습니다: " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>

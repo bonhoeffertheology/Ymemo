@@ -1,4 +1,5 @@
-const CACHE_NAME = 'ymemo-v3';
+// 캐시 이름을 v3에서 v4로 변경하여 이전 캐시를 강제 삭제합니다.
+const CACHE_NAME = 'ymemo-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -29,8 +30,9 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
+// 캐시보다 네트워크 요청을 우선하도록 변경 (항상 최신 코드 반영)
 self.addEventListener('fetch', (e) => {
   e.respondWith(
-    caches.match(e.request).then((res) => res || fetch(e.request))
+    fetch(e.request).catch(() => caches.match(e.request))
   );
 });

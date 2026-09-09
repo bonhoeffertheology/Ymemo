@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ymemo - AI 전자책 스마트 독서 노트</title>
+    <title>Ymemo - 오프라인 지원 AI 독서 노트</title>
     
-    <!-- PDF 및 EPUB 처리를 위한 브라우저 라이브러리 (서버 업로드 없이 내 기기에서 직접 분석) -->
+    <!-- 오프라인 PWA 설정 및 매니페스트 (데이터 URI 방식) -->
+    <link rel="manifest" href="data:application/manifest+json;utf8,{%22name%22:%22Ymemo%22,%22short_name%22:%22Ymemo%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23ffffff%22,%22theme_color%22:%22%231a73e8%22}">
+    <meta name="theme-color" content="#1a73e8">
+
+    <!-- 외부 CDN 대신 로컬 오프라인 파서 라이브러리 로드 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
@@ -31,8 +35,11 @@
 <body>
 
     <div class="card">
-        <h1>📚 Ymemo 독서 노트</h1>
-        <p>PDF/EPUB 전자책이나 텍스트를 선택하면 제미나이 AI가 4가지 주요 내용을 발췌해 드립니다.</p>
+        <h1>📚 Ymemo 독서 노트 (오프라인 지원)</h1>
+        <p>인터넷 없이도 문서 텍스트 추출이 가능하며, 네트워크 연결 시 Gemini AI로 자동 연동됩니다.</p>
+
+        <!-- 오프라인 상태 표시줄 -->
+        <div id="netStatus" class="status info">🌐 네트워크 상태 확인 중...</div>
 
         <!-- API 키 설정 영역 -->
         <div id="keyStatus" class="status warn">⚠️ API 키가 설정되지 않았습니다. 아래에 입력 후 저장하세요.</div>
@@ -51,21 +58,55 @@
         <label style="font-weight:bold; display:block; margin-bottom:8px; margin-top:8px;">✍️ 또는 직접 텍스트/메모 붙여넣기:</label>
         <textarea id="bookText" placeholder="파일을 업로드하거나, 요약하고 싶은 책 본문 내용을 직접 입력하세요..."></textarea>
 
-        <button type="button" onclick="processAndGenerate()">🚀 AI 분석 및 독서 노트 추출 시작</button>
+        <button type="button" onclick="processAndGenerate()">🚀 텍스트 추출 및 AI 분석 시작</button>
     </div>
 
     <!-- 결과 출력 영역 -->
     <div id="resultCard" class="card hidden">
-        <h2>📋 발췌 및 요약 리포트</h2>
+        <h2>📋 결과 및 발췌 리포트</h2>
         <div id="statusMessage" class="status info hidden"></div>
         <div id="output">생성 중...</div>
     </div>
 
     <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // PDF.js 워커 모듈 로컬 동적 연결
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
 
-        // 페이지 로드시 저장된 키 확인
+        // 인터넷 연결 상태 실시간 감지
+        function updateOnlineStatus() {
+            const netStatus = document.getElementById("netStatus");
+            if (navigator.onLine) {
+                netStatus.innerText = "⚡ 온라인 상태: Gemini AI 연결이 가능합니다.";
+                netStatus.className = "status success";
+            } else {
+                netStatus.innerText = "🔌 오프라인 상태: 파일 텍스트 추출만 가능하며, AI 분석은 온라인 연결 시 실행됩니다.";
+                netStatus.className = "status warn";
+            }
+        }
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+
+        // 오프라인 실행을 위한 Service Worker 캐싱 등록
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE_NAME = 'ymemo-v1';
+                self.addEventListener('install', e => {
+                    e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(['./'])));
+                });
+                self.addEventListener('fetch', e => {
+                    e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
+                });
+            `;
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+        }
+
+        // 페이지 로드시 기기 저장 상태 확인
         window.onload = function() {
+            updateOnlineStatus();
             const savedKey = localStorage.getItem("GEMINI_API_KEY");
             if (savedKey) {
                 document.getElementById("apiKeyInput").value = savedKey;
@@ -74,7 +115,7 @@
             }
         };
 
-        // API Key 저장
+        // API Key 기기 저장
         function saveApiKey() {
             const key = document.getElementById("apiKeyInput").value.trim();
             if (!key) {
@@ -87,16 +128,11 @@
             alert("API 키가 브라우저에 안전하게 저장되었습니다!");
         }
 
-        // 통합 실행 함수 (파일 텍스트 추출 + Gemini 분석)
+        // 문서 처리 및 분석 실행
         async function processAndGenerate() {
             const apiKey = localStorage.getItem("GEMINI_API_KEY") || document.getElementById("apiKeyInput").value.trim();
             const fileInput = document.getElementById("fileInput");
             const manualText = document.getElementById("bookText").value.trim();
-
-            if (!apiKey) {
-                alert("Gemini API 키를 먼저 설정하고 저장해주세요.");
-                return;
-            }
 
             let extractedText = "";
             let fileName = "";
@@ -107,11 +143,11 @@
 
             resultCard.classList.remove("hidden");
             statusMessage.classList.remove("hidden");
-            statusMessage.innerText = "⏳ 파일을 분석하여 텍스트를 읽어오는 중입니다...";
+            statusMessage.innerText = "⏳ 파일에서 텍스트를 오프라인으로 읽어오는 중입니다...";
             outputDiv.innerText = "";
 
             try {
-                // 1. 파일이 선택된 경우 텍스트 추출
+                // 1. 오프라인 파일 텍스트 추출 (브라우저 자체 처리)
                 if (fileInput.files.length > 0) {
                     const file = fileInput.files[0];
                     fileName = file.name;
@@ -123,7 +159,6 @@
                     }
                 } 
                 
-                // 2. 직접 입력한 텍스트가 있다면 결합
                 if (manualText) {
                     extractedText += "\n" + manualText;
                 }
@@ -134,12 +169,24 @@
                     return;
                 }
 
+                // 오프라인일 때 텍스트 추출 결과만 먼저 표시
+                if (!navigator.onLine) {
+                    statusMessage.innerText = "ℹ️ 오프라인 상태입니다. 추출된 원문 텍스트입니다:";
+                    outputDiv.innerText = extractedText;
+                    return;
+                }
+
+                if (!apiKey) {
+                    alert("온라인 AI 분석을 위한 Gemini API 키를 먼저 설정하고 저장해주세요.");
+                    return;
+                }
+
                 statusMessage.innerText = "⏳ Gemini AI가 핵심 내용을 분석하고 독서 노트를 작성 중입니다...";
 
-                // 3. Gemini API 호출 (최대 4,000자 전송)
+                // 2. 온라인 상태일 경우 Gemini API 요청 전송
                 const prompt = `
-책/문서 이름: ${fileName || "업로드 문서"}
-[입력 본문 내용]
+문서 이름: ${fileName || "업로드 문서"}
+[본문 내용]
 ${extractedText.substring(0, 4000)}
 
 위 본문 내용을 바탕으로 아래 4가지 카테고리로 독서 노트를 작성해 주세요:
@@ -149,8 +196,7 @@ ${extractedText.substring(0, 4000)}
 4. 📖 예화 / 에피소드 / 스토리
 
 [작성 규칙]
-- 각 주요 발췌 항목 끝에는 가급적 "출처: 《${fileName || "본문"}》" 형태의 표기를 덧붙여 주세요.
-- 가독성 높은 마크다운 단락 형태로 정돈해 주세요.
+- 각 발췌 항목 끝에는 가급적 "출처: 《${fileName || "본문"}》" 형태의 표기를 덧붙여 주세요.
                 `;
 
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
@@ -175,12 +221,12 @@ ${extractedText.substring(0, 4000)}
             }
         }
 
-        // PDF 텍스트 추출 함수 (브라우저 내부 동작)
+        // 로컬 PDF 텍스트 파싱
         async function extractTextFromPDF(file) {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = "";
-            const maxPages = Math.min(pdf.numPages, 30); // 최대 30페이지 추출
+            const maxPages = Math.min(pdf.numPages, 30);
 
             for (let i = 1; i <= maxPages; i++) {
                 const page = await pdf.getPage(i);
@@ -191,7 +237,7 @@ ${extractedText.substring(0, 4000)}
             return fullText;
         }
 
-        // EPUB 텍스트 추출 함수 (브라우저 내부 동작)
+        // 로컬 EPUB 텍스트 파싱
         async function extractTextFromEPUB(file) {
             const zip = await JSZip.loadAsync(file);
             let fullText = "";

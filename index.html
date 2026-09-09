@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ymemo - 오프라인 지원 AI 독서 노트</title>
+    <title>Ymemo - AI 스마트 독서 노트</title>
     
-    <!-- 오프라인 PWA 설정 및 매니페스트 (데이터 URI 방식) -->
-    <link rel="manifest" href="data:application/manifest+json;utf8,{%22name%22:%22Ymemo%22,%22short_name%22:%22Ymemo%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23ffffff%22,%22theme_color%22:%22%231a73e8%22}">
+    <!-- PWA 파일 및 단색 PNG 아이콘 연결 -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon.png" type="image/png">
+    <link rel="apple-touch-icon" href="icon.png">
     <meta name="theme-color" content="#1a73e8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Ymemo">
 
-    <!-- 외부 CDN 대신 로컬 오프라인 파서 라이브러리 로드 -->
+    <!-- 외부 라이브러리 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
@@ -35,10 +40,9 @@
 <body>
 
     <div class="card">
-        <h1>📚 Ymemo 독서 노트 (오프라인 지원)</h1>
-        <p>인터넷 없이도 문서 텍스트 추출이 가능하며, 네트워크 연결 시 Gemini AI로 자동 연동됩니다.</p>
+        <h1>📚 Ymemo 독서 노트</h1>
+        <p>전자책 문서 분석 및 Gemini AI 발췌 노트 앱입니다.</p>
 
-        <!-- 오프라인 상태 표시줄 -->
         <div id="netStatus" class="status info">🌐 네트워크 상태 확인 중...</div>
 
         <!-- API 키 설정 영역 -->
@@ -54,9 +58,9 @@
         <label style="font-weight:bold; display:block; margin-bottom:8px;">📄 전자책 파일 업로드 (PDF 또는 EPUB):</label>
         <input type="file" id="fileInput" accept=".pdf, .epub">
 
-        <!-- 직접 텍스트 입력 영역 -->
+        <!-- 텍스트 입력 영역 -->
         <label style="font-weight:bold; display:block; margin-bottom:8px; margin-top:8px;">✍️ 또는 직접 텍스트/메모 붙여넣기:</label>
-        <textarea id="bookText" placeholder="파일을 업로드하거나, 요약하고 싶은 책 본문 내용을 직접 입력하세요..."></textarea>
+        <textarea id="bookText" placeholder="파일을 업로드하거나, 요약하고 싶은 본문 내용을 직접 입력하세요..."></textarea>
 
         <button type="button" onclick="processAndGenerate()">🚀 텍스트 추출 및 AI 분석 시작</button>
     </div>
@@ -69,19 +73,23 @@
     </div>
 
     <script>
-        // PDF.js 워커 모듈 로컬 동적 연결
-        if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // 서비스 워커(sw.js) 등록
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log("Service Worker 등록 완료"))
+                .catch(err => console.log("Service Worker 등록 실패:", err));
         }
 
-        // 인터넷 연결 상태 실시간 감지
+        // 네트워크 감지
         function updateOnlineStatus() {
             const netStatus = document.getElementById("netStatus");
             if (navigator.onLine) {
-                netStatus.innerText = "⚡ 온라인 상태: Gemini AI 연결이 가능합니다.";
+                netStatus.innerText = "⚡ 온라인 상태: Gemini AI 분석이 가능합니다.";
                 netStatus.className = "status success";
             } else {
-                netStatus.innerText = "🔌 오프라인 상태: 파일 텍스트 추출만 가능하며, AI 분석은 온라인 연결 시 실행됩니다.";
+                netStatus.innerText = "🔌 오프라인 상태: 텍스트 추출만 가능합니다.";
                 netStatus.className = "status warn";
             }
         }
@@ -89,22 +97,6 @@
         window.addEventListener('online', updateOnlineStatus);
         window.addEventListener('offline', updateOnlineStatus);
 
-        // 오프라인 실행을 위한 Service Worker 캐싱 등록
-        if ('serviceWorker' in navigator) {
-            const swCode = `
-                const CACHE_NAME = 'ymemo-v1';
-                self.addEventListener('install', e => {
-                    e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(['./'])));
-                });
-                self.addEventListener('fetch', e => {
-                    e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
-                });
-            `;
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
-        }
-
-        // 페이지 로드시 기기 저장 상태 확인
         window.onload = function() {
             updateOnlineStatus();
             const savedKey = localStorage.getItem("GEMINI_API_KEY");
@@ -115,7 +107,6 @@
             }
         };
 
-        // API Key 기기 저장
         function saveApiKey() {
             const key = document.getElementById("apiKeyInput").value.trim();
             if (!key) {
@@ -125,10 +116,9 @@
             localStorage.setItem("GEMINI_API_KEY", key);
             document.getElementById("keyStatus").innerText = "✅ API Key가 이 기기에 저장되었습니다. (자동 연결됨)";
             document.getElementById("keyStatus").className = "status success";
-            alert("API 키가 브라우저에 안전하게 저장되었습니다!");
+            alert("API 키가 브라우저에 저장되었습니다!");
         }
 
-        // 문서 처리 및 분석 실행
         async function processAndGenerate() {
             const apiKey = localStorage.getItem("GEMINI_API_KEY") || document.getElementById("apiKeyInput").value.trim();
             const fileInput = document.getElementById("fileInput");
@@ -143,11 +133,10 @@
 
             resultCard.classList.remove("hidden");
             statusMessage.classList.remove("hidden");
-            statusMessage.innerText = "⏳ 파일에서 텍스트를 오프라인으로 읽어오는 중입니다...";
+            statusMessage.innerText = "⏳ 파일에서 텍스트를 읽어오는 중입니다...";
             outputDiv.innerText = "";
 
             try {
-                // 1. 오프라인 파일 텍스트 추출 (브라우저 자체 처리)
                 if (fileInput.files.length > 0) {
                     const file = fileInput.files[0];
                     fileName = file.name;
@@ -159,9 +148,7 @@
                     }
                 } 
                 
-                if (manualText) {
-                    extractedText += "\n" + manualText;
-                }
+                if (manualText) extractedText += "\n" + manualText;
 
                 if (!extractedText.trim()) {
                     alert("분석할 파일이나 텍스트를 입력해주세요.");
@@ -169,21 +156,19 @@
                     return;
                 }
 
-                // 오프라인일 때 텍스트 추출 결과만 먼저 표시
                 if (!navigator.onLine) {
-                    statusMessage.innerText = "ℹ️ 오프라인 상태입니다. 추출된 원문 텍스트입니다:";
+                    statusMessage.innerText = "ℹ️ 오프라인 상태입니다. 추출된 원문 텍스트:";
                     outputDiv.innerText = extractedText;
                     return;
                 }
 
                 if (!apiKey) {
-                    alert("온라인 AI 분석을 위한 Gemini API 키를 먼저 설정하고 저장해주세요.");
+                    alert("Gemini API 키를 먼저 저장해주세요.");
                     return;
                 }
 
                 statusMessage.innerText = "⏳ Gemini AI가 핵심 내용을 분석하고 독서 노트를 작성 중입니다...";
 
-                // 2. 온라인 상태일 경우 Gemini API 요청 전송
                 const prompt = `
 문서 이름: ${fileName || "업로드 문서"}
 [본문 내용]
@@ -194,17 +179,13 @@ ${extractedText.substring(0, 4000)}
 2. 💖 마음에 와닿는 문장
 3. 💬 인용하기 좋은 문장
 4. 📖 예화 / 에피소드 / 스토리
-
-[작성 규칙]
-- 각 발췌 항목 끝에는 가급적 "출처: 《${fileName || "본문"}》" 형태의 표기를 덧붙여 주세요.
                 `;
 
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                // 모델명을 gemini-2.5-flash로 수정 적용
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
-                    })
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
 
                 const data = await response.json();
@@ -221,7 +202,6 @@ ${extractedText.substring(0, 4000)}
             }
         }
 
-        // 로컬 PDF 텍스트 파싱
         async function extractTextFromPDF(file) {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -237,7 +217,6 @@ ${extractedText.substring(0, 4000)}
             return fullText;
         }
 
-        // 로컬 EPUB 텍스트 파싱
         async function extractTextFromEPUB(file) {
             const zip = await JSZip.loadAsync(file);
             let fullText = "";
@@ -246,9 +225,7 @@ ${extractedText.substring(0, 4000)}
                 if (filename.endsWith(".html") || filename.endsWith(".xhtml")) {
                     const htmlContent = await zip.files[filename].async("string");
                     const cleanText = htmlContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-                    if (cleanText.length > 50) {
-                        fullText += "\n" + cleanText;
-                    }
+                    if (cleanText.length > 50) fullText += "\n" + cleanText;
                 }
             }
             return fullText;

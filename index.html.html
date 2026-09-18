@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>발췌노트 — 주제어로 책 속 문장 찾기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #23273A;
+    --ink-soft: #565B72;
+    --paper: #EFEDE6;
+    --paper-raised: #F8F6EF;
+    --line: #D8D3C4;
+    --accent: #9C4A3B;
+    --accent-soft: #E8D9C9;
+    --mark-bg: #F0D48A;
+    --mark-fg: #23273A;
+    --tag-bg: #E4E0D2;
+    --tag-fg: #3A3E2F;
+    --danger: #A23B3B;
+    --shadow: rgba(35, 39, 58, 0.14);
+    --font-serif: "Noto Serif KR", "Noto Serif", "Nanum Myeongjo", Georgia, serif;
+    --font-sans: "IBM Plex Sans KR", "Pretendard", "Apple SD Gothic Neo", -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #EDEAE0;
+      --ink-soft: #B3AF9F;
+      --paper: #1B1B18;
+      --paper-raised: #242420;
+      --line: #3A3934;
+      --accent: #E08A6F;
+      --accent-soft: #3A2B22;
+      --mark-bg: #7A5F22;
+      --mark-fg: #F5EFE2;
+      --tag-bg: #2E2E28;
+      --tag-fg: #D6D2C2;
+      --danger: #E08A8A;
+      --shadow: rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #EDEAE0;
+    --ink-soft: #B3AF9F;
+    --paper: #1B1B18;
+    --paper-raised: #242420;
+    --line: #3A3934;
+    --accent: #E08A6F;
+    --accent-soft: #3A2B22;
+    --mark-bg: #7A5F22;
+    --mark-fg: #F5EFE2;
+    --tag-bg: #2E2E28;
+    --tag-fg: #D6D2C2;
+    --danger: #E08A8A;
+    --shadow: rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+  }
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+  header.top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  header.top h1 {
+    font-family: var(--font-serif);
+    font-weight: 700;
+    font-size: 28px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  header.top p {
+    margin: 6px 0 0;
+    color: var(--ink-soft);
+    font-size: 14px;
+    max-width: 46ch;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 20px;
+  }
+  .panel + .panel { margin-top: 20px; }
+  .panel h2 {
+    font-family: var(--font-serif);
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel h2 .idx {
+    color: var(--accent);
+    font-family: var(--font-serif);
+  }
+  .hint {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin: 6px 0 0;
+    line-height: 1.5;
+  }
+
+  /* 드롭존 */
+  .dropzone {
+    border: 1.5px dashed var(--line);
+    border-radius: 3px;
+    padding: 22px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    background: transparent;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .dropzone .big {
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .dropzone .small {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  input[type=file] { display: none; }
+
+  .booklist {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .booklist li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    background: var(--tag-bg);
+    color: var(--tag-fg);
+    border-radius: 2px;
+    padding: 6px 8px;
+  }
+  .booklist li .name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .booklist li .status {
+    font-size: 11px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .booklist li button {
+    border: none;
+    background: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px;
+  }
+
+  /* 키워드 칩 */
+  .chipfield {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--tag-bg);
+    color: var(--tag-fg);
+    border-radius: 999px;
+    padding: 5px 6px 5px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+  .chip button {
+    border: none;
+    background: rgba(0,0,0,0.08);
+    color: inherit;
+    border-radius: 999px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chip-add {
+    display: flex;
+    gap: 6px;
+  }
+  .chip-add input {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 3px;
+    padding: 7px 9px;
+    font-size: 13px;
+    font-family: var(--font-sans);
+  }
+  .chip-add button {
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    border-radius: 3px;
+    padding: 7px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .chip-add button:hover { background: var(--accent-soft); }
+
+  .run-btn {
+    width: 100%;
+    margin-top: 16px;
+    background: var(--accent);
+    color: #FBF7F0;
+    border: none;
+    border-radius: 3px;
+    padding: 12px 14px;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font-sans);
+  }
+  .run-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .run-btn:not(:disabled):hover { filter: brightness(1.06); }
+
+  .progress {
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    min-height: 18px;
+  }
+
+  /* 결과 영역 */
+  .results-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .results-head .count {
+    font-family: var(--font-serif);
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .results-head .count span {
+    color: var(--accent);
+  }
+  .exportbar {
+    display: flex;
+    gap: 8px;
+  }
+  .exportbar button {
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    color: var(--ink);
+    border-radius: 3px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+  }
+  .exportbar button:hover { border-color: var(--accent); color: var(--accent); }
+  .exportbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .filterbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .filter-chip {
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    color: var(--ink-soft);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+  }
+  .filter-chip.active {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .searchbox {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    color: var(--ink);
+    border-radius: 3px;
+    padding: 9px 11px;
+    font-size: 13.5px;
+    margin-bottom: 18px;
+    font-family: var(--font-sans);
+  }
+
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 2px var(--shadow);
+  }
+  .card .meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .card .title {
+    font-family: var(--font-serif);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .card .subtag {
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .card .subtag .kw {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .card .content {
+    font-family: var(--font-serif);
+    font-size: 15.5px;
+    line-height: 1.75;
+    color: var(--ink);
+  }
+  .card .content mark {
+    background: var(--mark-bg);
+    color: var(--mark-fg);
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-soft);
+  }
+  .empty .face {
+    font-family: var(--font-serif);
+    font-size: 17px;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .empty .small { font-size: 13px; }
+
+  footer.note {
+    margin-top: 34px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>발췌노트</h1>
+      <p>EPUB · PDF 전자책을 올리면, 정해둔 주제어와 관련된 문장을 책마다 찾아드려요. 모든 처리는 이 브라우저 안에서만 이루어지고, 파일은 서버로 전송되지 않아요.</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- 좌측: 설정 패널 -->
+    <div>
+      <div class="panel">
+        <h2><span class="idx">1</span> 책 올리기</h2>
+        <div class="dropzone" id="dropzone">
+          <div class="big">클릭하거나 파일을 끌어다 놓기</div>
+          <div class="small">.epub / .pdf · 여러 권 한꺼번에 가능</div>
+        </div>
+        <input type="file" id="fileInput" accept=".epub,.pdf" multiple>
+        <ul class="booklist" id="bookList"></ul>
+      </div>
+
+      <div class="panel">
+        <h2><span class="idx">2</span> 주제어</h2>
+        <div class="chipfield" id="chipField"></div>
+        <div class="chip-add">
+          <input type="text" id="newKeyword" placeholder="새 주제어 입력 후 추가" maxlength="20">
+          <button id="addKeywordBtn">추가</button>
+        </div>
+        <p class="hint">문장에 이 단어가 포함되면 결과로 뽑아요. 필요한 만큼 추가하거나 지울 수 있어요.</p>
+      </div>
+
+      <button class="run-btn" id="runBtn" disabled>책을 먼저 올려주세요</button>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- 우측: 결과 -->
+    <div class="panel" id="resultsPanel">
+      <div class="results-head">
+        <div class="count" id="resultCount">아직 결과가 없어요</div>
+        <div class="exportbar">
+          <button id="exportCsv" disabled>CSV로 내보내기</button>
+          <button id="exportJson" disabled>JSON으로 내보내기</button>
+        </div>
+      </div>
+      <div class="filterbar" id="filterBar"></div>
+      <input type="text" class="searchbox" id="searchBox" placeholder="결과 안에서 다시 검색…" style="display:none;">
+      <div class="cards" id="cards">
+        <div class="empty">
+          <div class="face">왼쪽에서 책과 주제어를 준비해주세요</div>
+          <div class="small">책을 올리고 '주제어 찾기'를 누르면 여기에 발췌가 쌓여요.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">
+    문장 구분과 챕터/페이지 표시는 파일 구조에 따라 완벽하지 않을 수 있어요. PDF는 실제 인쇄 페이지 번호를, EPUB은 목차상의 장(챕터) 순서를 기준으로 위치를 표시합니다. 결과는 참고용 발췌이니, 중요한 부분은 원문에서 다시 확인해보세요.
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  if (window.pdfjsLib) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
+  // ---------- 상태 ----------
+  var DEFAULT_KEYWORDS = ["사랑", "정의", "신앙", "죄", "성실", "겸손"];
+  var state = {
+    keywords: DEFAULT_KEYWORDS.slice(),
+    books: [],       // {id, name, kind, status, title, units}
+    matches: [],      // {bookId, title, keyword, label, snippet, order}
+    activeFilters: new Set(), // 빈 셋 = 전체
+    searchTerm: ""
+  };
+  var idSeq = 1;
+
+  try {
+    var savedKw = localStorage.getItem("excerptNotebookKeywords");
+    if (savedKw) {
+      var parsed = JSON.parse(savedKw);
+      if (Array.isArray(parsed) && parsed.length) state.keywords = parsed;
+    }
+  } catch (e) { /* 저장된 값이 없거나 손상된 경우 기본값 사용 */ }
+
+  function saveKeywords() {
+    try { localStorage.setItem("excerptNotebookKeywords", JSON.stringify(state.keywords)); }
+    catch (e) { /* 저장 실패해도 동작에는 영향 없음 */ }
+  }
+
+  // ---------- DOM ----------
+  var dropzone = document.getElementById("dropzone");
+  var fileInput = document.getElementById("fileInput");
+  var bookListEl = document.getElementById("bookList");
+  var chipField = document.getElementById("chipField");
+  var newKeywordInput = document.getElementById("newKeyword");
+  var addKeywordBtn = document.getElementById("addKeywordBtn");
+  var runBtn = document.getElementById("runBtn");
+  var progressEl = document.getElementById("progress");
+  var resultCount = document.getElementById("resultCount");
+  var filterBar = document.getElementById("filterBar");
+  var searchBox = document.getElementById("searchBox");
+  var cardsEl = document.getElementById("cards");
+  var exportCsvBtn = document.getElementById("exportCsv");
+  var exportJsonBtn = document.getElementById("exportJson");
+
+  // ---------- 다운로드 캐퍼빌리티 ----------
+  var downloadsApi = null;
+  (function initDownloads() {
+    if (!window.claude || !window.claude.use) return;
+    window.claude.use("downloads").then(function (d) {
+      downloadsApi = d;
+      renderExportButtons();
+    }).catch(function () { downloadsApi = null; });
+  })();
+
+  // ---------- 유틸 ----------
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function collapseSpace(s) {
+    return s.replace(/\s+/g, " ").trim();
+  }
+
+  function splitSentences(text) {
+    var clean = collapseSpace(text);
+    if (!clean) return [];
+    // 마침표/물음표/느낌표 뒤에서 분리 (뒤에 공백이 없어도 분리 시도)
+    var parts = clean.split(/(?<=[.!?…」』"'])\s*/);
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].trim();
+      if (p) out.push(p);
+    }
+    return out.length ? out : [clean];
+  }
+
+  function buildSnippet(sentences, i) {
+    var pieces = [];
+    if (i > 0) pieces.push(sentences[i - 1]);
+    pieces.push(sentences[i]);
+    if (i < sentences.length - 1) pieces.push(sentences[i + 1]);
+    var joined = pieces.join(" ");
+    if (joined.length > 380) {
+      // 매칭된 문장을 중심으로 자르기
+      var core = sentences[i];
+      var extra = Math.max(0, Math.floor((380 - core.length) / 2));
+      joined = (pieces[0] && pieces[0] !== core ? "… " : "") +
+        core.slice(0, core.length) +
+        (pieces[pieces.length - 1] && pieces[pieces.length - 1] !== core ? " …" : "");
+      if (joined.length > 380) joined = core.slice(0, 380) + "…";
+    }
+    return joined;
+  }
+
+  function highlightKeyword(text, keyword) {
+    var escaped = escapeHtml(text);
+    var kwEsc = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    var re = new RegExp("(" + kwEsc + ")", "gi");
+    return escaped.replace(re, "<mark>$1</mark>");
+  }
+
+  // ---------- 파일 파싱: PDF ----------
+  function extractFromPDF(file) {
+    return file.arrayBuffer().then(function (buf) {
+      return window.pdfjsLib.getDocument({ data: buf }).promise;
+    }).then(function (pdf) {
+      return pdf.getMetadata().then(function (meta) {
+        var title = (meta && meta.info && meta.info.Title && meta.info.Title.trim()) || null;
+        return loadAllPages(pdf).then(function (units) {
+          return { title: title || fileTitleFallback(file.name), units: units };
+        });
+      }).catch(function () {
+        return loadAllPages(pdf).then(function (units) {
+          return { title: fileTitleFallback(file.name), units: units };
+        });
+      });
+    });
+  }
+
+  function loadAllPages(pdf) {
+    var units = [];
+    var chain = Promise.resolve();
+    var n = pdf.numPages;
+    for (var p = 1; p <= n; p++) {
+      var pageNum = p;
+      chain = chain.then(function () {
+        return pdf.getPage(pageNum).then(function (page) {
+          return page.getTextContent();
+        }).then(function (tc) {
+          var text = tc.items.map(function (it) { return it.str; }).join(" ");
+          units.push({ label: "p." + pageNum, text: text, order: pageNum });
+        });
+      });
+    }
+    return chain.then(function () { return units; });
+  }
+
+  function fileTitleFallback(name) {
+    return name.replace(/\.(epub|pdf)$/i, "");
+  }
+
+  // ---------- 파일 파싱: EPUB ----------
+  function resolveHref(baseDir, href) {
+    if (!href) return href;
+    href = href.split("#")[0];
+    if (!baseDir) return href;
+    var baseParts = baseDir.split("/").filter(Boolean);
+    var relParts = href.split("/");
+    for (var i = 0; i < relParts.length; i++) {
+      if (relParts[i] === "." || relParts[i] === "") continue;
+      if (relParts[i] === "..") baseParts.pop();
+      else baseParts.push(relParts[i]);
+    }
+    return baseParts.join("/");
+  }
+
+  function dirname(path) {
+    var idx = path.lastIndexOf("/");
+    return idx >= 0 ? path.slice(0, idx) : "";
+  }
+
+  function extractFromEPUB(file) {
+    return file.arrayBuffer().then(function (buf) {
+      return window.JSZip.loadAsync(buf);
+    }).then(function (zip) {
+      var containerFile = zip.file("META-INF/container.xml");
+      if (!containerFile) throw new Error("container.xml을 찾을 수 없어요");
+      return containerFile.async("string").then(function (containerXml) {
+        var doc = new DOMParser().parseFromString(containerXml, "application/xml");
+        var rootfileEl = doc.querySelector("rootfile");
+        var opfPath = rootfileEl ? rootfileEl.getAttribute("full-path") : null;
+        if (!opfPath) throw new Error("OPF 경로를 찾을 수 없어요");
+        var opfDir = dirname(opfPath);
+        var opfFile = zip.file(opfPath);
+        if (!opfFile) throw new Error("OPF 파일을 열 수 없어요");
+        return opfFile.async("string").then(function (opfXml) {
+          var opfDoc = new DOMParser().parseFromString(opfXml, "application/xml");
+
+          // 제목
+          var titleEl = opfDoc.getElementsByTagName("dc:title")[0] ||
+            opfDoc.querySelector("title");
+          var title = titleEl ? collapseSpace(titleEl.textContent) : null;
+
+          // manifest: id -> href
+          var manifestMap = {};
+          var items = opfDoc.getElementsByTagName("item");
+          for (var i = 0; i < items.length; i++) {
+            var id = items[i].getAttribute("id");
+            var href = items[i].getAttribute("href");
+            if (id && href) manifestMap[id] = resolveHref(opfDir, href);
+          }
+
+          // spine: 순서대로 idref
+          var spineHrefs = [];
+          var itemrefs = opfDoc.getElementsByTagName("itemref");
+          for (var j = 0; j < itemrefs.length; j++) {
+            var idref = itemrefs[j].getAttribute("idref");
+            if (idref && manifestMap[idref]) spineHrefs.push(manifestMap[idref]);
+          }
+
+          if (!spineHrefs.length) throw new Error("스파인 정보를 찾을 수 없어요");
+
+          var chain = Promise.resolve();
+          var units = [];
+          spineHrefs.forEach(function (href, idx) {
+            chain = chain.then(function () {
+              var f = zip.file(href);
+              if (!f) return;
+              return f.async("string").then(function (html) {
+                var hdoc = new DOMParser().parseFromString(html, "text/html");
+                var body = hdoc.body || hdoc.documentElement;
+                var text = body ? collapseSpace(body.textContent || "") : "";
+                if (!text) return;
+                var heading = body && body.querySelector("h1, h2, h3");
+                var label = heading && collapseSpace(heading.textContent).slice(0, 24) ?
+                  (idx + 1) + "장 · " + collapseSpace(heading.textContent).slice(0, 24) :
+                  (idx + 1) + "장";
+                units.push({ label: label, text: text, order: idx + 1 });
+              });
+            });
+          });
+
+          return chain.then(function () {
+            return { title: title || fileTitleFallback(file.name), units: units };
+          });
+        });
+      });
+    });
+  }
+
+  // ---------- 책 목록 UI ----------
+  function renderBookList() {
+    bookListEl.innerHTML = "";
+    state.books.forEach(function (b) {
+      var li = document.createElement("li");
+      var statusText = b.status === "done" ? (b.unitCount + "개 조각") :
+        b.status === "error" ? "읽기 실패" :
+        b.status === "loading" ? "읽는 중…" : "대기";
+      li.innerHTML =
+        '<span class="name" title="' + escapeHtml(b.name) + '">' + escapeHtml(b.name) + '</span>' +
+        '<span class="status">' + statusText + '</span>' +
+        '<button data-id="' + b.id + '" aria-label="삭제">✕</button>';
+      bookListEl.appendChild(li);
+    });
+    updateRunButton();
+  }
+
+  bookListEl.addEventListener("click", function (e) {
+    var btn = e.target.closest("button");
+    if (!btn) return;
+    var id = Number(btn.getAttribute("data-id"));
+    state.books = state.books.filter(function (b) { return b.id !== id; });
+    renderBookList();
+  });
+
+  function updateRunButton() {
+    if (!state.books.length) {
+      runBtn.disabled = true;
+      runBtn.textContent = "책을 먼저 올려주세요";
+    } else if (!state.keywords.length) {
+      runBtn.disabled = true;
+      runBtn.textContent = "주제어를 하나 이상 추가해주세요";
+    } else {
+      runBtn.disabled = false;
+      runBtn.textContent = "주제어 찾기 (" + state.books.length + "권)";
+    }
+  }
+
+  // ---------- 파일 추가 ----------
+  function addFiles(fileList) {
+    Array.prototype.forEach.call(fileList, function (file) {
+      var ext = file.name.split(".").pop().toLowerCase();
+      if (ext !== "epub" && ext !== "pdf") return;
+      state.books.push({
+        id: idSeq++,
+        name: file.name,
+        kind: ext,
+        file: file,
+        status: "pending",
+        title: null,
+        units: [],
+        unitCount: 0
+      });
+    });
+    renderBookList();
+  }
+
+  dropzone.addEventListener("click", function () { fileInput.click(); });
+  fileInput.addEventListener("change", function () {
+    addFiles(fileInput.files);
+    fileInput.value = "";
+  });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+    });
+  });
+  dropzone.addEventListener("drop", function (e) {
+    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  });
+
+  // ---------- 주제어 칩 ----------
+  function renderChips() {
+    chipField.innerHTML = "";
+    state.keywords.forEach(function (kw, idx) {
+      var chip = document.createElement("span");
+      chip.className = "chip";
+      chip.innerHTML = escapeHtml(kw) + ' <button data-idx="' + idx + '" aria-label="삭제">✕</button>';
+      chipField.appendChild(chip);
+    });
+    updateRunButton();
+  }
+  chipField.addEventListener("click", function (e) {
+    var btn = e.target.closest("button");
+    if (!btn) return;
+    var idx = Number(btn.getAttribute("data-idx"));
+    state.keywords.splice(idx, 1);
+    saveKeywords();
+    renderChips();
+  });
+
+  function addKeyword() {
+    var v = collapseSpace(newKeywordInput.value);
+    if (!v) return;
+    if (state.keywords.indexOf(v) === -1) state.keywords.push(v);
+    newKeywordInput.value = "";
+    saveKeywords();
+    renderChips();
+  }
+  addKeywordBtn.addEventListener("click", addKeyword);
+  newKeywordInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); addKeyword(); }
+  });
+
+  // ---------- 실행 ----------
+  runBtn.addEventListener("click", runExtraction);
+
+  function runExtraction() {
+    runBtn.disabled = true;
+    var total = state.books.length;
+    var done = 0;
+    progressEl.textContent = "0 / " + total + "권 읽는 중…";
+
+    var chain = Promise.resolve();
+    state.books.forEach(function (book) {
+      chain = chain.then(function () {
+        book.status = "loading";
+        renderBookList();
+        var extractor = book.kind === "pdf" ? extractFromPDF : extractFromEPUB;
+        return extractor(book.file).then(function (result) {
+          book.title = result.title;
+          book.units = result.units;
+          book.unitCount = result.units.length;
+          book.status = "done";
+        }).catch(function (err) {
+          console.error("파일 읽기 실패:", book.name, err);
+          book.status = "error";
+        }).then(function () {
+          done++;
+          progressEl.textContent = done + " / " + total + "권 읽음";
+          renderBookList();
+        });
+      });
+    });
+
+    chain.then(function () {
+      progressEl.textContent = "문장에서 주제어를 찾는 중…";
+      return new Promise(function (resolve) { setTimeout(resolve, 10); });
+    }).then(function () {
+      computeMatches();
+      progressEl.textContent = "완료: " + state.matches.length + "건 발견";
+      state.activeFilters = new Set();
+      state.searchTerm = "";
+      searchBox.value = "";
+      renderFilterBar();
+      renderResults();
+      runBtn.disabled = false;
+      updateRunButton();
+    });
+  }
+
+  function computeMatches() {
+    state.matches = [];
+    var lowerKeywords = state.keywords.map(function (k) { return { raw: k, lower: k.toLowerCase() }; });
+    state.books.forEach(function (book) {
+      if (book.status !== "done") return;
+      book.units.forEach(function (unit) {
+        var sentences = splitSentences(unit.text);
+        sentences.forEach(function (sentence, i) {
+          var lower = sentence.toLowerCase();
+          lowerKeywords.forEach(function (kw) {
+            if (lower.indexOf(kw.lower) !== -1) {
+              state.matches.push({
+                bookId: book.id,
+                title: book.title,
+                keyword: kw.raw,
+                label: unit.label,
+                order: (unit.order || 0) * 100000 + i,
+                snippet: buildSnippet(sentences, i)
+              });
+            }
+          });
+        });
+      });
+    });
+    state.matches.sort(function (a, b) {
+      if (a.title !== b.title) return a.title < b.title ? -1 : 1;
+      return a.order - b.order;
+    });
+  }
+
+  // ---------- 결과 렌더 ----------
+  function renderFilterBar() {
+    filterBar.innerHTML = "";
+    var present = {};
+    state.matches.forEach(function (m) { present[m.keyword] = (present[m.keyword] || 0) + 1; });
+    var keys = Object.keys(present);
+    if (!keys.length) { searchBox.style.display = "none"; return; }
+    searchBox.style.display = "";
+    keys.forEach(function (kw) {
+      var chip = document.createElement("button");
+      chip.className = "filter-chip" + (state.activeFilters.has(kw) ? " active" : "");
+      chip.textContent = kw + " (" + present[kw] + ")";
+      chip.addEventListener("click", function () {
+        if (state.activeFilters.has(kw)) state.activeFilters.delete(kw);
+        else state.activeFilters.add(kw);
+        renderFilterBar();
+        renderResults();
+      });
+      filterBar.appendChild(chip);
+    });
+  }
+
+  searchBox.addEventListener("input", function () {
+    state.searchTerm = searchBox.value.trim().toLowerCase();
+    renderResults();
+  });
+
+  function visibleMatches() {
+    return state.matches.filter(function (m) {
+      if (state.activeFilters.size && !state.activeFilters.has(m.keyword)) return false;
+      if (state.searchTerm && m.snippet.toLowerCase().indexOf(state.searchTerm) === -1) return false;
+      return true;
+    });
+  }
+
+  function renderResults() {
+    var visible = visibleMatches();
+    resultCount.innerHTML = state.matches.length ?
+      "발췌 <span>" + visible.length + "</span>건" +
+      (visible.length !== state.matches.length ? " / 전체 " + state.matches.length + "건" : "") :
+      "아직 결과가 없어요";
+
+    exportCsvBtn.disabled = !visible.length;
+    exportJsonBtn.disabled = !visible.length;
+
+    cardsEl.innerHTML = "";
+    if (!visible.length) {
+      var empty = document.createElement("div");
+      empty.className = "empty";
+      empty.innerHTML = state.matches.length ?
+        '<div class="face">조건에 맞는 결과가 없어요</div><div class="small">필터나 검색어를 조정해보세요.</div>' :
+        '<div class="face">왼쪽에서 책과 주제어를 준비해주세요</div><div class="small">책을 올리고 \'주제어 찾기\'를 누르면 여기에 발췌가 쌓여요.</div>';
+      cardsEl.appendChild(empty);
+      return;
+    }
+    visible.forEach(function (m) {
+      var card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML =
+        '<div class="meta">' +
+          '<span class="title">' + escapeHtml(m.title) + '</span>' +
+          '<span class="subtag">' + escapeHtml(m.label) + ' · <span class="kw">' + escapeHtml(m.keyword) + '</span></span>' +
+        '</div>' +
+        '<div class="content">' + highlightKeyword(m.snippet, m.keyword) + '</div>';
+      cardsEl.appendChild(card);
+    });
+  }
+
+  // ---------- 내보내기 ----------
+  function renderExportButtons() {
+    // 다운로드 기능이 없는 뷰어에서는 버튼을 숨김
+    if (!downloadsApi) {
+      exportCsvBtn.style.display = "none";
+      exportJsonBtn.style.display = "none";
+    }
+  }
+
+  function csvEscape(v) {
+    var s = String(v == null ? "" : v);
+    if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  exportCsvBtn.addEventListener("click", function () {
+    if (!downloadsApi) return;
+    var rows = [["책제목", "내용", "페이지", "주제어"]];
+    visibleMatches().forEach(function (m) {
+      rows.push([m.title, m.snippet, m.label, m.keyword]);
+    });
+    var csv = rows.map(function (r) { return r.map(csvEscape).join(","); }).join("\r\n");
+    var bom = "\uFEFF"; // 엑셀 한글 깨짐 방지
+    downloadsApi.save({ filename: "발췌노트.csv", data: bom + csv }).catch(function () {});
+  });
+
+  exportJsonBtn.addEventListener("click", function () {
+    if (!downloadsApi) return;
+    var data = visibleMatches().map(function (m) {
+      return { 책제목: m.title, 내용: m.snippet, 페이지: m.label, 주제어: m.keyword };
+    });
+    downloadsApi.save({
+      filename: "발췌노트.json",
+      data: JSON.stringify(data, null, 2)
+    }).catch(function () {});
+  });
+
+  // ---------- 초기 렌더 ----------
+  renderChips();
+  renderBookList();
+})();
+</script>
+</body>
+</html>

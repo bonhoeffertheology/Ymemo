@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>제시어 구절 찾기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef1f5; --panel:#ffffff; --ink:#18212d; --muted:#5b6778; --line:#d5dbe4;
+    --accent:#2748d8; --accent-ink:#ffffff; --accent-soft:#e4e9fc; --warn:#a8470f; --ok:#17794a;
+    --hl:#ffe27a; --hl-ink:#18212d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#12171f; --panel:#1b222d; --ink:#e8edf4; --muted:#93a0b3; --line:#2c3644;
+      --accent:#7d95ff; --accent-ink:#0d1220; --accent-soft:#232d52; --warn:#f0a66c; --ok:#6fd3a0;
+      --hl:#7a6414; --hl-ink:#fff4c2;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans KR","Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    line-height:1.55; padding:32px 16px 72px;
+  }
+  .wrap{max-width:980px; margin:0 auto}
+  h1{font-size:28px; margin:0 0 6px; letter-spacing:-0.02em}
+  h2{font-size:16px; margin:0 0 12px}
+  .sub{color:var(--muted); margin:0 0 24px}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:16px}
+  .panel.off{opacity:.5; pointer-events:none}
+
+  #drop{
+    border:2px dashed var(--line); border-radius:10px; padding:28px 16px; text-align:center;
+    cursor:pointer; transition:background .15s,border-color .15s;
+  }
+  #drop:hover,#drop.over,#drop:focus-visible{background:var(--accent-soft); border-color:var(--accent); outline:none}
+  #drop strong{display:block; font-size:17px; margin-bottom:4px}
+  #drop span{color:var(--muted); font-size:14px}
+  #fileName{margin-top:10px; font-size:14px; color:var(--muted); word-break:break-all}
+
+  label.f{display:flex; flex-direction:column; gap:5px; font-size:13px; color:var(--muted)}
+  select,input[type=number],input[type=search],textarea{
+    font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line);
+    border-radius:6px; padding:8px 10px;
+  }
+  textarea{width:100%; min-height:110px; resize:vertical; line-height:1.6}
+  label.chk{display:flex; align-items:center; gap:8px; font-size:14px; margin-top:10px}
+  .hint{font-size:12.5px; color:var(--muted); margin-top:6px}
+  .opts{display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; align-items:flex-end}
+  .opts input[type=number]{width:110px}
+
+  button{
+    font:inherit; font-weight:600; border:0; border-radius:8px; padding:11px 20px; cursor:pointer;
+    background:var(--accent); color:var(--accent-ink);
+  }
+  button:disabled{opacity:.45; cursor:not-allowed}
+  button.ghost{background:transparent; color:var(--ink); border:1px solid var(--line); font-weight:500; padding:8px 14px; font-size:14px}
+  button.ghost:hover:not(:disabled){background:var(--accent-soft)}
+  button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .grow{flex:1}
+
+  #progress{display:none}
+  .track{height:8px; background:var(--bg); border-radius:99px; overflow:hidden; margin:10px 0 6px}
+  .fill{height:100%; width:0; background:var(--accent); transition:width .2s}
+  #status{font-size:14px; color:var(--muted)}
+  #log{font-size:13px; color:var(--warn); margin-top:6px}
+  #loaded{font-size:14px; color:var(--ok); margin-top:10px; display:none}
+
+  #result{display:none}
+  .summary{color:var(--muted); font-size:14px; margin:0 0 12px}
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  .seg button{border-radius:0; background:transparent; color:var(--ink); font-weight:500; padding:7px 14px; font-size:14px}
+  .seg button.on{background:var(--accent); color:var(--accent-ink)}
+
+  .group{margin-top:20px}
+  .group h3{font-size:16px; margin:0 0 6px; display:flex; gap:8px; align-items:baseline}
+  .group h3 small{font-weight:400; color:var(--muted); font-size:13px}
+  .list{border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  .item{display:grid; grid-template-columns:128px 1fr; gap:12px; padding:7px 12px; border-top:1px solid var(--line); font-size:15px; align-items:baseline}
+  .list.flat .item{grid-template-columns:128px 110px 1fr}
+  .item:first-child{border-top:0}
+  .item:nth-child(even){background:color-mix(in srgb,var(--bg) 55%,transparent)}
+  .pg{font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .pg b{font-weight:600}
+  .pg small{display:block; color:var(--muted); font-size:11.5px; line-height:1.2; overflow:hidden; text-overflow:ellipsis}
+  .kw{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .sn{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+  .wrap-on .sn{white-space:normal}
+  mark{background:var(--hl); color:var(--hl-ink); padding:0 2px; border-radius:3px}
+  .tag{font-size:10.5px; border:1px solid var(--line); color:var(--muted); border-radius:4px; padding:0 4px; margin-left:4px}
+  .none{padding:10px 12px; color:var(--muted); font-size:14px}
+  .more{padding:8px 12px; color:var(--muted); font-size:13px; border-top:1px solid var(--line)}
+  @media (max-width:640px){
+    .item,.list.flat .item{grid-template-columns:1fr; gap:2px}
+  }
+
+  .item.click{cursor:pointer}
+  .item.click:hover,.item.click:focus-visible{background:var(--accent-soft); outline:none}
+
+  dialog#viewer{
+    border:1px solid var(--line); border-radius:12px; padding:0; width:min(980px,96vw); height:92vh; max-width:none; max-height:none;
+    background:var(--panel); color:var(--ink);
+  }
+  dialog#viewer[open]{display:flex; flex-direction:column}
+  dialog#viewer::backdrop{background:rgba(10,14,22,.55)}
+  .vh{display:flex; gap:8px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); flex-wrap:wrap}
+  .vtitle{min-width:0}
+  .vtitle b{font-size:16px}
+  .vtitle small{display:block; color:var(--muted); font-size:12px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:46vw}
+  .vh .seg button{padding:5px 12px; font-size:13px}
+  .vh button.ghost{padding:6px 12px}
+  #vbody{flex:1; overflow:auto; padding:16px; background:var(--bg)}
+  .vnote{max-width:720px; margin:0 auto 12px; font-size:12.5px; color:var(--muted)}
+  .pageWrap{position:relative; margin:0 auto; width:fit-content; box-shadow:0 2px 14px rgba(0,0,0,.25); background:#fff}
+  .pageWrap canvas{display:block}
+  .hlbox{position:absolute; background:rgba(255,200,0,.5); mix-blend-mode:multiply; border-radius:2px; pointer-events:none; outline:1px solid rgba(220,150,0,.9)}
+  .vtext{max-width:720px; margin:0 auto; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px 22px; font-size:16px; line-height:1.9}
+  .vtext p{margin:.55em 0}
+  .vtext .cur{background:var(--accent-soft); border-radius:3px; box-decoration-break:clone; -webkit-box-decoration-break:clone}
+  .vload{text-align:center; color:var(--muted); padding:40px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>제시어 구절 찾기</h1>
+  <p class="sub">EPUB 또는 PDF를 올리고 제시어를 입력하면, 제시어가 들어 있는 구절을 한 줄씩 쪽수와 함께 목록으로 모아 보여줍니다. 파일은 서버로 전송되지 않고 브라우저 안에서만 처리됩니다.</p>
+
+  <!-- 1. 파일 -->
+  <div class="panel">
+    <h2>1. 파일 읽기</h2>
+    <div id="drop" tabindex="0" role="button" aria-label="파일 선택">
+      <strong>파일을 끌어다 놓거나 클릭해서 선택</strong>
+      <span>.epub / .pdf</span>
+      <div id="fileName"></div>
+    </div>
+    <input id="file" type="file" accept=".epub,.pdf,application/pdf,application/epub+zip" hidden>
+    <label class="chk"><input id="useOcr" type="checkbox" checked> 글자가 없는 PDF 페이지는 OCR로 자동 인식</label>
+    <div class="opts">
+      <label class="f">OCR 언어
+        <select id="ocrLang">
+          <option value="kor+eng">한국어 + 영어</option>
+          <option value="eng">영어</option>
+          <option value="kor">한국어</option>
+        </select>
+      </label>
+      <button id="load" disabled>파일 읽기</button>
+    </div>
+    <div class="hint">OCR은 처음 실행할 때 언어 데이터를 내려받아야 해서 인터넷 연결이 필요하고, 페이지당 수 초가 걸립니다. EPUB은 고정된 쪽수가 없어 챕터로 표시하고, 쪽 정보가 들어 있는 EPUB은 그 쪽수를 씁니다.</div>
+    <div id="loaded"></div>
+  </div>
+
+  <div class="panel" id="progress">
+    <div id="status">준비 중…</div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div id="log"></div>
+  </div>
+
+  <!-- 2. 제시어 -->
+  <div class="panel off" id="searchPanel">
+    <h2>2. 제시어 입력</h2>
+    <textarea id="kws" placeholder="한 줄에 검색 하나씩 입력하세요&#10;예)&#10;자유&#10;책임, 의무&#10;(두 번째 줄은 '책임'과 '의무'가 한 문장에 같이 나온 구절을 찾아요)"></textarea>
+    <div class="hint">줄바꿈은 별개의 검색입니다. 한 줄 안에서 쉼표(,)로 단어를 이으면 그 단어들이 <b>한 문장에 모두 들어 있는</b> 구절만 찾아요. 단어는 2개 이상 이어도 됩니다.</div>
+    <div class="opts">
+      <label class="f">구절 최대 글자 수
+        <input id="maxLen" type="number" min="20" max="400" value="90">
+      </label>
+      <label class="f">제시어당 최대 표시 (0=전체)
+        <input id="maxHits" type="number" min="0" value="0">
+      </label>
+      <button id="search">구절 찾기</button>
+    </div>
+    <label class="chk"><input id="ignoreSpace" type="checkbox"> 띄어쓰기 무시하고 찾기 (OCR이나 PDF에서 글자 사이가 벌어진 경우)</label>
+    <label class="chk"><input id="ignoreCase" type="checkbox" checked> 영문 대소문자 무시</label>
+  </div>
+
+  <!-- 3. 결과 -->
+  <div class="panel" id="result">
+    <h2>3. 결과</h2>
+    <p class="summary" id="summary"></p>
+    <div class="hint" style="margin:-6px 0 10px">구절을 누르면 책의 해당 부분이 열립니다.</div>
+    <div class="row" style="margin-bottom:4px">
+      <div class="seg" role="group" aria-label="보기 방식">
+        <button id="vGroup" class="on">제시어별</button>
+        <button id="vFlat">쪽수 순</button>
+      </div>
+      <label class="chk" style="margin:0 0 0 6px"><input id="wrapLines" type="checkbox"> 긴 구절 줄바꿈</label>
+      <span class="grow"></span>
+      <button class="ghost" id="copy">복사</button>
+      <button class="ghost" id="dlTxt">TXT 저장</button>
+      <button class="ghost" id="dlCsv">CSV 저장</button>
+    </div>
+    <div id="out"></div>
+  </div>
+</div>
+
+<dialog id="viewer" aria-label="책 본문 보기">
+  <div class="vh">
+    <div class="vtitle"><b id="vTitle"></b><small id="vSub"></small></div>
+    <span class="grow"></span>
+    <div class="seg" id="vTabs" role="group" aria-label="보기 방식">
+      <button id="tabPage" class="on">원본 페이지</button>
+      <button id="tabText">텍스트</button>
+    </div>
+    <button class="ghost" id="vPrev" aria-label="이전">◀ 이전</button>
+    <button class="ghost" id="vNext" aria-label="다음">다음 ▶</button>
+    <button class="ghost" id="vClose">닫기</button>
+  </div>
+  <div id="vbody"></div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const tick = () => new Promise(r => setTimeout(r, 0));
+
+  let currentFile = null;
+  /** units: [{label, sub, text, ocr}]  — 쪽(PDF) 또는 챕터/쪽(EPUB) 단위 본문 */
+  let units = [];
+  let results = [];      // [{kw, hits:[{u, pos, text, ranges}], total}]
+  let viewMode = "group";
+  let pdfDoc = null;                       // 원본 페이지 보기용
+  let lastOpt = { ignoreCase: true, ignoreSpace: false };
+
+  /* ================= 파일 선택 ================= */
+  const drop = $("drop"), input = $("file");
+  drop.addEventListener("click", () => input.click());
+  drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+  ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => setFile(e.dataTransfer.files[0]));
+  input.addEventListener("change", () => setFile(input.files[0]));
+
+  function setFile(f) {
+    if (!f) return;
+    if (!/\.(epub|pdf)$/i.test(f.name)) { $("fileName").textContent = "EPUB 또는 PDF 파일만 올릴 수 있어요."; return; }
+    currentFile = f;
+    units = []; results = []; pdfDoc = null;
+    $("fileName").textContent = `${f.name} (${(f.size / 1048576).toFixed(1)}MB)`;
+    $("load").disabled = false;
+    $("loaded").style.display = "none";
+    $("searchPanel").classList.add("off");
+    $("result").style.display = "none";
+  }
+
+  /* ================= 진행 표시 ================= */
+  function setProgress(ratio, text) {
+    $("progress").style.display = "block";
+    $("fill").style.width = Math.round(ratio * 100) + "%";
+    if (text) $("status").textContent = text;
+  }
+  function log(msg) { $("log").textContent = msg; }
+
+  /* ================= 텍스트 정리 ================= */
+  // 가로 공백은 한 칸으로, 줄바꿈은 문장 경계로 쓰기 위해 유지
+  function normalizeText(t) {
+    return t.replace(/[ \t\r\f\v\u00a0\u3000]+/g, " ").replace(/ *\n */g, "\n").replace(/\n+/g, "\n").trim();
+  }
+
+  /* ================= EPUB ================= */
+  const BLOCK = new Set(["P","DIV","LI","H1","H2","H3","H4","H5","H6","BR","TR","BLOCKQUOTE","SECTION","ARTICLE","PRE","DT","DD","TABLE","UL","OL","FIGCAPTION"]);
+
+  function isPageBreak(el) {
+    const t = (el.getAttribute("epub:type") || "") + " " + (el.getAttribute("role") || "");
+    return /pagebreak/.test(t);
+  }
+
+  async function readEpub(file) {
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const containerXml = await zip.file("META-INF/container.xml")?.async("string");
+    if (!containerXml) throw new Error("EPUB 구조(container.xml)를 찾을 수 없어요.");
+    const parser = new DOMParser();
+    const opfPath = parser.parseFromString(containerXml, "application/xml").querySelector("rootfile")?.getAttribute("full-path");
+    const opf = parser.parseFromString(await zip.file(opfPath).async("string"), "application/xml");
+    const base = opfPath.includes("/") ? opfPath.slice(0, opfPath.lastIndexOf("/") + 1) : "";
+
+    const manifest = {};
+    opf.querySelectorAll("manifest > item").forEach(it => { manifest[it.getAttribute("id")] = it.getAttribute("href"); });
+    let files = [...opf.querySelectorAll("spine > itemref")].map(r => manifest[r.getAttribute("idref")]).filter(Boolean);
+    if (!files.length) files = Object.values(manifest).filter(h => /\.(x?html?)$/i.test(h));
+
+    const out = [];
+    let chapterNo = 0;
+    let usedPageBreaks = false;
+    for (let i = 0; i < files.length; i++) {
+      setProgress(i / files.length, `EPUB 읽는 중… (${i + 1}/${files.length})`);
+      const path = decodeURIComponent(resolvePath(base, files[i]));
+      const entry = zip.file(path) || zip.file(files[i]);
+      if (!entry) continue;
+      const doc = parser.parseFromString(await entry.async("string"), "text/html");
+      doc.querySelectorAll("script,style").forEach(n => n.remove());
+      if (!doc.body) continue;
+
+      chapterNo++;
+      const heading = doc.querySelector("h1,h2,h3,title");
+      let title = heading ? heading.textContent.replace(/\s+/g, " ").trim() : "";
+      if (title.length > 24) title = title.slice(0, 24) + "…";
+      const chapterLabel = `챕터 ${chapterNo}` + (title ? ` · ${title}` : "");
+
+      // 본문을 순서대로 걸으면서 쪽 표시(pagebreak)를 만나면 구간을 나눔
+      let seg = { label: chapterLabel, sub: "", text: "" };
+      const segs = [seg];
+      const walk = node => {
+        if (node.nodeType === 3) { seg.text += node.nodeValue; return; }
+        if (node.nodeType !== 1) return;
+        if (isPageBreak(node)) {
+          const pg = (node.getAttribute("title") || node.getAttribute("aria-label") || node.textContent || "").trim();
+          if (pg) {
+            usedPageBreaks = true;
+            seg = { label: `${pg}쪽`, sub: chapterLabel, text: "" };
+            segs.push(seg);
+          }
+          return;
+        }
+        const blk = BLOCK.has(node.tagName);
+        if (blk) seg.text += "\n";
+        node.childNodes.forEach(walk);
+        if (blk) seg.text += "\n";
+      };
+      walk(doc.body);
+      segs.forEach(s => { s.text = normalizeText(s.text); if (s.text) out.push({ ...s, ocr: false }); });
+      if (i % 5 === 0) await tick();
+    }
+    return { units: out, meta: usedPageBreaks ? `EPUB ${chapterNo}개 챕터 (쪽 정보 사용)` : `EPUB ${chapterNo}개 챕터` };
+  }
+  function resolvePath(base, href) {
+    href = href.split("#")[0];
+    const out = [];
+    for (const p of (base + href).split("/")) { if (p === "..") out.pop(); else if (p !== ".") out.push(p); }
+    return out.join("/");
+  }
+
+  /* ================= PDF (+ OCR) ================= */
+  async function createOcr(lang) {
+    setProgress(0, "OCR 엔진 준비 중… (처음에는 언어 데이터를 내려받아요)");
+    const w = await Tesseract.createWorker(lang, 1, {
+      logger: m => { if (m.status && m.status.includes("loading")) log(`OCR 준비: ${m.status} ${Math.round((m.progress || 0) * 100)}%`); }
+    });
+    log("");
+    return w;
+  }
+
+  async function readPdf(file, useOcr, ocrLang) {
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    pdfDoc = pdf;
+    const n = pdf.numPages;
+    let labels = null;
+    try { labels = await pdf.getPageLabels(); } catch (e) {}
+    const pages = new Array(n).fill("");
+    const needOcr = [];
+
+    for (let p = 1; p <= n; p++) {
+      setProgress((p - 1) / n * (useOcr ? 0.3 : 1), `PDF 글자 읽는 중… (${p}/${n})`);
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      const text = tc.items.map(i => i.str).join(" ");
+      pages[p - 1] = text;
+      // 의미 있는 글자가 거의 없으면 스캔 페이지(OCR 필요)로 판단
+      if (text.replace(/[\s\d\W]/g, "").length < 20) needOcr.push(p);
+      if (p % 10 === 0) await tick();
+    }
+
+    const ocrDone = new Set();
+    if (needOcr.length) {
+      if (!useOcr) {
+        log(`글자가 없는 페이지가 ${needOcr.length}개 있지만 OCR이 꺼져 있어서 건너뛰었어요.`);
+      } else {
+        let worker;
+        try {
+          worker = await createOcr(ocrLang);
+          for (let i = 0; i < needOcr.length; i++) {
+            const p = needOcr[i];
+            setProgress(0.3 + (i / needOcr.length) * 0.7, `OCR 처리 중… 스캔 페이지 ${i + 1}/${needOcr.length} (${p}쪽)`);
+            try {
+              const page = await pdf.getPage(p);
+              const vp = page.getViewport({ scale: 2.2 });
+              const canvas = document.createElement("canvas");
+              canvas.width = vp.width; canvas.height = vp.height;
+              await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+              const { data } = await worker.recognize(canvas);
+              pages[p - 1] = data.text;
+              ocrDone.add(p);
+              canvas.width = canvas.height = 0;
+            } catch (err) { console.warn("OCR 실패", p, err); }
+          }
+          log(`OCR로 ${ocrDone.size}개 페이지를 인식했어요.`);
+        } catch (err) {
+          console.error(err);
+          log("OCR 엔진을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.");
+        } finally {
+          if (worker) { try { await worker.terminate(); } catch (e) {} }
+        }
+      }
+    }
+
+    const out = [];
+    pages.forEach((t, i) => {
+      const text = normalizeText(t.replace(/\n/g, " ")); // PDF는 줄바꿈이 문장 중간에 오므로 공백으로
+      if (!text) return;
+      const printed = labels && labels[i] && String(labels[i]) !== String(i + 1) ? `인쇄 ${labels[i]}쪽` : "";
+      out.push({ label: `${i + 1}쪽`, sub: printed, text, ocr: ocrDone.has(i + 1), page: i + 1 });
+    });
+    return { units: out, meta: `PDF ${n}쪽` + (ocrDone.size ? ` (OCR ${ocrDone.size}쪽)` : "") };
+  }
+
+  /* ================= 읽기 실행 ================= */
+  $("load").addEventListener("click", async () => {
+    if (!currentFile) return;
+    const btn = $("load");
+    btn.disabled = true;
+    $("loaded").style.display = "none";
+    $("searchPanel").classList.add("off");
+    $("result").style.display = "none";
+    log("");
+    pdfDoc = null;
+    try {
+      const r = /\.epub$/i.test(currentFile.name)
+        ? await readEpub(currentFile)
+        : await readPdf(currentFile, $("useOcr").checked, $("ocrLang").value);
+      units = r.units;
+      const chars = units.reduce((s, u) => s + u.text.length, 0);
+      if (chars < 30) {
+        setProgress(1, "텍스트를 찾지 못했어요. PDF라면 OCR 옵션을 켜고 다시 읽어 보세요.");
+        return;
+      }
+      setProgress(1, "읽기 완료");
+      const el = $("loaded");
+      el.textContent = `${r.meta} · 총 ${chars.toLocaleString()}자를 읽었어요. 아래에 제시어를 입력하세요.`;
+      el.style.display = "block";
+      $("searchPanel").classList.remove("off");
+      $("kws").focus();
+    } catch (err) {
+      console.error(err);
+      setProgress(0, "오류: " + (err.message || err));
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  /* ================= 검색 ================= */
+  const BOUND = /[.!?。！？\n]/;
+
+  function prep(u, ignoreCase) {
+    if (u._ic !== ignoreCase || !u._low) {
+      let low = ignoreCase ? u.text.toLowerCase() : u.text;
+      if (low.length !== u.text.length) low = u.text;
+      u._low = low; u._ic = ignoreCase; u._ns = null;
+    }
+  }
+  function nospace(u) {
+    if (u._ns) return u._ns;
+    let s = ""; const map = [];
+    for (let i = 0; i < u._low.length; i++) {
+      if (/\s/.test(u._low[i])) continue;
+      s += u._low[i]; map.push(i);
+    }
+    return (u._ns = { s, map });
+  }
+  function findAll(u, kw, ignoreSpace) {
+    const out = [];
+    if (ignoreSpace) {
+      const { s, map } = nospace(u);
+      const k = kw.replace(/\s+/g, "");
+      if (!k) return out;
+      let i = 0;
+      while ((i = s.indexOf(k, i)) !== -1) {
+        out.push([map[i], map[i + k.length - 1] + 1]);
+        i += k.length;
+      }
+    } else {
+      let i = 0;
+      while ((i = u._low.indexOf(kw, i)) !== -1) { out.push([i, i + kw.length]); i += kw.length; }
+    }
+    return out;
+  }
+
+  function searchQuery(terms, opt) {
+    const keys = terms.map(t => opt.ignoreCase ? t.toLowerCase() : t);
+    const hits = [];
+    units.forEach((u, ui) => {
+      prep(u, opt.ignoreCase);
+      // 모든 단어가 이 구간에 한 번이라도 나와야 후보
+      const all = keys.map(k => findAll(u, k, opt.ignoreSpace));
+      if (all.some(ms => !ms.length)) return;
+      const T = u.text;
+      let lastEnd = -1;
+      for (const m of all[0]) {
+        if (m[0] < lastEnd) continue;               // 같은 문장은 한 번만
+        let a = m[0];
+        while (a > 0 && !BOUND.test(T[a - 1])) a--;
+        let b = m[1];
+        while (b < T.length && !BOUND.test(T[b])) b++;
+        if (b < T.length && T[b] !== "\n") b++;     // 마침표 등 포함
+        lastEnd = b;
+
+        // 나머지 단어도 같은 문장 안에 있는지 확인
+        const inSent = all.map(ms => ms.filter(x => x[0] >= a && x[1] <= b));
+        if (inSent.some(ms => !ms.length)) continue;
+
+        let sent = T.slice(a, b);
+        const lead = sent.length - sent.trimStart().length;
+        sent = sent.trim();
+        let ranges = inSent.flat().map(x => [Math.max(0, x[0] - a - lead), Math.min(sent.length, x[1] - a - lead)]);
+
+        let text = sent;
+        const lo = Math.min(...ranges.map(r => r[0])), hi = Math.max(...ranges.map(r => r[1]));
+        // 모든 단어가 보이도록, 필요하면 최대 글자 수를 늘려서 자름
+        const limit = Math.min(Math.max(opt.maxLen, hi - lo + 24), 400);
+        if (sent.length > limit) {
+          const c = Math.floor((lo + hi) / 2);
+          let st = Math.max(0, c - Math.floor(limit / 2));
+          let en = Math.min(sent.length, st + limit);
+          st = Math.max(0, en - limit);
+          const pre = st > 0 ? "…" : "";
+          text = pre + sent.slice(st, en) + (en < sent.length ? "…" : "");
+          const off = pre.length - st, from = pre.length, to = pre.length + (en - st);
+          ranges = ranges.map(r => [r[0] + off, r[1] + off])
+                         .filter(r => r[1] > from && r[0] < to)
+                         .map(r => [Math.max(from, r[0]), Math.min(to, r[1])]);
+        }
+        hits.push({ u: ui, pos: a, text, ranges, sa: a, sb: b });
+      }
+    });
+    return hits;
+  }
+
+  // 줄바꿈 = 별개의 검색, 쉼표 = 한 문장 안에 모두 있어야 하는 단어들
+  function parseQueries(raw) {
+    const seen = new Set(), out = [];
+    raw.split(/[\n;；]+/).forEach(line => {
+      const terms = [];
+      line.split(/[,，、]+/).map(s => s.trim()).filter(Boolean).forEach(t => { if (!terms.includes(t)) terms.push(t); });
+      if (!terms.length) return;
+      const kw = terms.join(" + ");
+      if (seen.has(kw)) return;
+      seen.add(kw);
+      out.push({ kw, terms });
+    });
+    return out;
+  }
+
+  $("search").addEventListener("click", runSearch);
+  $("kws").addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runSearch(); });
+
+  function runSearch() {
+    const queries = parseQueries($("kws").value);
+    if (!queries.length) { $("kws").focus(); return; }
+    const opt = {
+      maxLen: Math.max(20, +$("maxLen").value || 90),
+      ignoreSpace: $("ignoreSpace").checked,
+      ignoreCase: $("ignoreCase").checked
+    };
+    lastOpt = opt;
+    results = queries.map(q => {
+      const hits = searchQuery(q.terms, opt);
+      return { kw: q.kw, terms: q.terms, hits, total: hits.length };
+    });
+    const found = results.filter(r => r.total).length;
+    const totalHits = results.reduce((s, r) => s + r.total, 0);
+    $("summary").textContent = `검색 ${queries.length}개 중 ${found}개에서 구절 ${totalHits.toLocaleString()}건을 찾았어요.` +
+      (found < queries.length ? ` (없음: ${results.filter(r => !r.total).map(r => r.kw).join(", ")})` : "");
+    $("result").style.display = "block";
+    render();
+    $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /* ================= 표시 ================= */
+  function highlight(el, text, ranges) {
+    const rs = ranges.slice().sort((a, b) => a[0] - b[0]);
+    let p = 0;
+    for (const [s0, e] of rs) {
+      if (e <= p || e <= s0) continue;
+      const s = Math.max(s0, p);
+      if (s > p) el.appendChild(document.createTextNode(text.slice(p, s)));
+      const m = document.createElement("mark"); m.textContent = text.slice(s, e); el.appendChild(m);
+      p = e;
+    }
+    if (p < text.length) el.appendChild(document.createTextNode(text.slice(p)));
+  }
+
+  function pageCell(u) {
+    const d = document.createElement("div"); d.className = "pg";
+    const b = document.createElement("b"); b.textContent = u.label; d.appendChild(b);
+    if (u.ocr) { const t = document.createElement("span"); t.className = "tag"; t.textContent = "OCR"; d.appendChild(t); }
+    if (u.sub) { const s = document.createElement("small"); s.textContent = u.sub; d.appendChild(s); }
+    return d;
+  }
+  function snippetCell(h) {
+    const d = document.createElement("div"); d.className = "sn";
+    highlight(d, h.text, h.ranges);
+    d.title = h.text;
+    return d;
+  }
+
+  function render() {
+    const out = $("out");
+    out.innerHTML = "";
+    out.className = $("wrapLines").checked ? "wrap-on" : "";
+    const limit = Math.max(0, +$("maxHits").value || 0);
+
+    if (viewMode === "group") {
+      for (const r of results) {
+        const g = document.createElement("div"); g.className = "group";
+        const h = document.createElement("h3");
+        h.textContent = r.kw;
+        const sm = document.createElement("small"); sm.textContent = `${r.total}건`; h.appendChild(sm);
+        g.appendChild(h);
+        const list = document.createElement("div"); list.className = "list";
+        if (!r.total) {
+          const n = document.createElement("div"); n.className = "none";
+          n.textContent = r.terms.length > 1
+            ? "이 단어들이 한 문장에 모두 들어 있는 구절이 없어요. 단어를 줄이거나 띄어쓰기 무시 옵션을 켜 보세요."
+            : "일치하는 구절이 없어요. 띄어쓰기 무시 옵션을 켜거나 표현을 바꿔 보세요.";
+          list.appendChild(n);
+        } else {
+          const shown = limit ? r.hits.slice(0, limit) : r.hits;
+          for (const hit of shown) {
+            const it = document.createElement("div"); it.className = "item";
+            it.append(pageCell(units[hit.u]), snippetCell(hit));
+            makeClickable(it, hit, r.terms);
+            list.appendChild(it);
+          }
+          if (shown.length < r.total) {
+            const m = document.createElement("div"); m.className = "more";
+            m.textContent = `외 ${r.total - shown.length}건 (표시 개수 제한)`;
+            list.appendChild(m);
+          }
+        }
+        g.appendChild(list);
+        out.appendChild(g);
+      }
+    } else {
+      const all = [];
+      for (const r of results) {
+        const shown = limit ? r.hits.slice(0, limit) : r.hits;
+        shown.forEach(hit => all.push({ kw: r.kw, hit, terms: r.terms }));
+      }
+      all.sort((x, y) => x.hit.u - y.hit.u || x.hit.pos - y.hit.pos);
+      const list = document.createElement("div"); list.className = "list flat";
+      if (!all.length) {
+        const n = document.createElement("div"); n.className = "none"; n.textContent = "일치하는 구절이 없어요.";
+        list.appendChild(n);
+      }
+      for (const { kw, hit, terms } of all) {
+        const it = document.createElement("div"); it.className = "item";
+        const k = document.createElement("div"); k.className = "kw"; k.textContent = kw; k.title = kw;
+        it.append(pageCell(units[hit.u]), k, snippetCell(hit));
+        makeClickable(it, hit, terms);
+        list.appendChild(it);
+      }
+      const g = document.createElement("div"); g.className = "group"; g.appendChild(list);
+      out.appendChild(g);
+    }
+  }
+
+  $("vGroup").addEventListener("click", () => { viewMode = "group"; $("vGroup").classList.add("on"); $("vFlat").classList.remove("on"); render(); });
+  $("vFlat").addEventListener("click", () => { viewMode = "flat"; $("vFlat").classList.add("on"); $("vGroup").classList.remove("on"); render(); });
+  $("wrapLines").addEventListener("change", () => $("out").classList.toggle("wrap-on", $("wrapLines").checked));
+  $("maxHits").addEventListener("change", () => { if (results.length) render(); });
+
+  /* ================= 내보내기 ================= */
+  function rowsForExport() {
+    const limit = Math.max(0, +$("maxHits").value || 0);
+    const rows = [];
+    for (const r of results) {
+      const shown = limit ? r.hits.slice(0, limit) : r.hits;
+      if (!shown.length) rows.push({ kw: r.kw, page: "", text: "(일치 없음)" });
+      shown.forEach(h => rows.push({ kw: r.kw, page: units[h.u].label + (units[h.u].sub ? ` / ${units[h.u].sub}` : ""), text: h.text, u: h.u, pos: h.pos }));
+    }
+    if (viewMode === "flat") rows.sort((a, b) => (a.u ?? 1e9) - (b.u ?? 1e9) || (a.pos ?? 0) - (b.pos ?? 0));
+    return rows;
+  }
+  function asText() {
+    if (viewMode === "flat") return rowsForExport().map(r => `[${r.kw}] ${r.page} | ${r.text}`).join("\n");
+    let s = "";
+    for (const r of results) {
+      s += `■ ${r.kw} (${r.total}건)\n`;
+      const rows = rowsForExport().filter(x => x.kw === r.kw);
+      rows.forEach(x => { s += `  ${x.page ? x.page + " | " : ""}${x.text}\n`; });
+      s += "\n";
+    }
+    return s.trim();
+  }
+  $("copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(asText()); flash($("copy"), "복사됨"); }
+    catch { flash($("copy"), "복사 실패"); }
+  });
+  $("dlTxt").addEventListener("click", () => save(asText(), "제시어_구절.txt", "text/plain"));
+  $("dlCsv").addEventListener("click", () => {
+    const q = s => `"${String(s).replace(/"/g, '""')}"`;
+    const csv = "제시어,쪽,구절\n" + rowsForExport().map(r => [q(r.kw), q(r.page), q(r.text)].join(",")).join("\n");
+    save("\uFEFF" + csv, "제시어_구절.csv", "text/csv");
+  });
+  function save(content, name, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([content], { type: type + ";charset=utf-8" }));
+    a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  function flash(btn, msg) {
+    const old = btn.textContent; btn.textContent = msg;
+    setTimeout(() => btn.textContent = old, 1200);
+  }
+
+  /* ================= 본문 보기 (뷰어) ================= */
+  const V = { ui: -1, terms: [], hit: null, tab: "page", token: 0 };
+  const dlg = $("viewer");
+
+  function makeClickable(el, hit, terms) {
+    el.classList.add("click");
+    el.tabIndex = 0;
+    el.setAttribute("role", "button");
+    el.addEventListener("click", () => openViewer(hit, terms));
+    el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openViewer(hit, terms); } });
+  }
+
+  function openViewer(hit, terms) {
+    V.hit = hit; V.terms = terms;
+    V.tab = pdfDoc && units[hit.u].page ? "page" : "text";
+    if (!dlg.open) dlg.showModal();
+    showUnit(hit.u);
+  }
+
+  async function showUnit(ui) {
+    if (ui < 0 || ui >= units.length) return;
+    V.ui = ui;
+    const tk = ++V.token;
+    const u = units[ui];
+    const canPage = !!(pdfDoc && u.page);
+    if (!canPage) V.tab = "text";
+    $("vTitle").textContent = u.label + (u.ocr ? " (OCR)" : "");
+    $("vSub").textContent = u.sub || "";
+    $("vTabs").style.display = canPage ? "inline-flex" : "none";
+    $("tabPage").classList.toggle("on", V.tab === "page");
+    $("tabText").classList.toggle("on", V.tab === "text");
+    $("vPrev").disabled = ui === 0;
+    $("vNext").disabled = ui === units.length - 1;
+
+    const body = $("vbody");
+    body.innerHTML = "";
+    body.scrollTop = 0;
+    if (V.tab === "page") {
+      const l = document.createElement("div"); l.className = "vload"; l.textContent = "페이지를 그리는 중…";
+      body.appendChild(l);
+      try { await renderPage(u, tk); }
+      catch (err) {
+        console.error(err);
+        if (tk !== V.token) return;
+        body.innerHTML = "";
+        V.tab = "text"; $("tabPage").classList.remove("on"); $("tabText").classList.add("on");
+        renderText(u, "원본 페이지를 그리지 못해서 텍스트로 보여드려요.");
+      }
+    } else {
+      renderText(u);
+    }
+  }
+
+  function termRanges(u) {
+    prep(u, lastOpt.ignoreCase);
+    const out = [];
+    V.terms.forEach(t => {
+      const k = lastOpt.ignoreCase ? t.toLowerCase() : t;
+      findAll(u, k, lastOpt.ignoreSpace).forEach(r => out.push(r));
+    });
+    return out;
+  }
+
+  function renderText(u, note) {
+    const body = $("vbody");
+    body.innerHTML = "";
+    if (note) { const n = document.createElement("div"); n.className = "vnote"; n.textContent = note; body.appendChild(n); }
+    const T = u.text;
+    const tr = termRanges(u);
+    const hit = V.hit && V.hit.u === V.ui ? V.hit : null;
+    const sa = hit ? hit.sa : -1, sb = hit ? hit.sb : -1;
+    const box = document.createElement("div"); box.className = "vtext";
+    let firstCur = null, o = 0;
+    for (const para of T.split("\n")) {
+      const L = para.length, end = o + L;
+      const p = document.createElement("p");
+      const cuts = new Set([o, end]);
+      [sa, sb].forEach(x => { if (x > o && x < end) cuts.add(x); });
+      tr.forEach(([s, e]) => { if (s > o && s < end) cuts.add(s); if (e > o && e < end) cuts.add(e); });
+      const pts = [...cuts].sort((a, b) => a - b);
+      for (let i = 0; i < pts.length - 1; i++) {
+        const x = pts[i], y = pts[i + 1];
+        if (y <= x) continue;
+        const inSent = sa >= 0 && x >= sa && y <= sb;
+        const inTerm = tr.some(([s, e]) => x >= s && y <= e);
+        const txt = document.createTextNode(T.slice(x, y));
+        let node = txt;
+        if (inTerm) { const m = document.createElement("mark"); m.appendChild(txt); node = m; }
+        if (inSent) {
+          const sp = document.createElement("span"); sp.className = "cur"; sp.appendChild(node); node = sp;
+          if (!firstCur) firstCur = sp;
+        }
+        p.appendChild(node);
+      }
+      box.appendChild(p);
+      o = end + 1; // 줄바꿈 한 글자
+    }
+    body.appendChild(box);
+    if (firstCur) firstCur.scrollIntoView({ block: "center" });
+  }
+
+  async function renderPage(u, tk) {
+    const body = $("vbody");
+    const page = await pdfDoc.getPage(u.page);
+    if (tk !== V.token) return;
+    const base = page.getViewport({ scale: 1 });
+    const avail = Math.max(280, Math.min(900, body.clientWidth - 32));
+    const cssScale = avail / base.width;
+    const dpr = window.devicePixelRatio || 1;
+    const vpR = page.getViewport({ scale: cssScale * dpr });
+    const vpC = page.getViewport({ scale: cssScale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(vpR.width); canvas.height = Math.floor(vpR.height);
+    canvas.style.width = Math.floor(vpC.width) + "px"; canvas.style.height = Math.floor(vpC.height) + "px";
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport: vpR }).promise;
+    if (tk !== V.token) return;
+
+    body.innerHTML = "";
+    const note = document.createElement("div"); note.className = "vnote";
+    const wrap = document.createElement("div"); wrap.className = "pageWrap";
+    wrap.appendChild(canvas);
+    body.append(note, wrap);
+
+    if (u.ocr) {
+      note.textContent = "스캔 페이지(OCR)라서 이미지에는 강조 표시가 없어요. 문장 위치는 '텍스트' 탭에서 확인하세요.";
+      return;
+    }
+    note.textContent = "노란 표시는 제시어 위치예요. 위치 계산 때문에 조금 어긋나거나 일부 빠질 수 있고, 문장 전체 표시는 '텍스트' 탭에서 볼 수 있어요.";
+    if (page.rotate % 360 !== 0) return;
+
+    const tc = await page.getTextContent();
+    if (tk !== V.token) return;
+    let first = null;
+    for (const item of tc.items) {
+      const str = item.str;
+      if (!str || !str.trim() || !item.width) continue;
+      const tx = pdfjsLib.Util.transform(vpC.transform, item.transform);
+      const fh = Math.hypot(tx[2], tx[3]);
+      const total = item.width * cssScale;
+      let hay = lastOpt.ignoreCase ? str.toLowerCase() : str;
+      if (hay.length !== str.length) hay = str;
+      for (const t of V.terms) {
+        const key = lastOpt.ignoreCase ? t.toLowerCase() : t;
+        const spans = [];
+        if (lastOpt.ignoreSpace) {
+          const map = []; let ns = "";
+          for (let i = 0; i < hay.length; i++) if (!/\s/.test(hay[i])) { ns += hay[i]; map.push(i); }
+          const k = key.replace(/\s+/g, "");
+          let i = 0;
+          while (k && (i = ns.indexOf(k, i)) !== -1) { spans.push([map[i], map[i + k.length - 1] + 1]); i += k.length; }
+        } else {
+          let i = 0;
+          while ((i = hay.indexOf(key, i)) !== -1) { spans.push([i, i + key.length]); i += key.length; }
+        }
+        for (const [s, e] of spans) {
+          const d = document.createElement("div"); d.className = "hlbox";
+          d.style.left = (tx[4] + total * s / str.length) + "px";
+          d.style.top = (tx[5] - fh * 0.95) + "px";
+          d.style.width = Math.max(4, total * (e - s) / str.length) + "px";
+          d.style.height = (fh * 1.2) + "px";
+          wrap.appendChild(d);
+          if (!first) first = d;
+        }
+      }
+    }
+    if (first) first.scrollIntoView({ block: "center" });
+  }
+
+  $("tabPage").addEventListener("click", () => { V.tab = "page"; showUnit(V.ui); });
+  $("tabText").addEventListener("click", () => { V.tab = "text"; showUnit(V.ui); });
+  $("vPrev").addEventListener("click", () => showUnit(V.ui - 1));
+  $("vNext").addEventListener("click", () => showUnit(V.ui + 1));
+  $("vClose").addEventListener("click", () => dlg.close());
+  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener("close", () => { V.token++; $("vbody").innerHTML = ""; });
+  dlg.addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft") { e.preventDefault(); showUnit(V.ui - 1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); showUnit(V.ui + 1); }
+  });
+})();
+</script>
+</body>
+</html>
